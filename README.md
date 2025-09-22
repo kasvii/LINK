@@ -1,0 +1,119 @@
+# LINK: A Lightweight Inverse Kinematics Network for 3D Human Mesh Reconstruction
+
+## Introduction
+This repository is the offical implementation of LINK: A Lightweight Inverse Kinematics Network for 3D Human Mesh Reconstruction.
+
+## Install guidelines
+- We recommend you to use an [Anaconda](https://www.anaconda.com/) virtual environment. Install [PyTorch](https://pytorch.org/) >= 1.2 according to your GPU driver and Python >= 3.7.2, and run `sh requirements.sh`. 
+
+## Quick demo
+- Download the pre-trained LINK models from [here](#pretrained-model-weights).
+- Prepare SMPL layer from [here](#pytorch-smpl-layer).
+- Run `python demo/run.py --gpu 0 --input_pose demo/coco_joint_input.npy --joint_set coco`. 
+- The `--input_pose {2d_pose_path}` follows the skeleton topology of `--joint_set {coco, human36}`, which can be found in `./data/*/dataset.py`.
+- The outputs will be saved in `./demo/result`.
+
+## Directory
+
+### Data
+
+The `data` directory structure should follow the below hierarchy.
+```
+${ROOT}  
+|-- data  
+|   |-- base_data
+|   |   |-- J_regressor_extra.npy 
+|   |   |-- J_regressor_h36m.npy
+|   |   |-- smpl_mean_params.npz
+|   |   |-- smpl_mean_vertices.npy
+|   |   |-- mesh_downsampling.npz
+|   |   |-- shortest_path_h36m.npy
+|   |   |-- shortest_path_3dpw.npy
+|   |   |-- path_h36m.npy
+|   |   |-- path_3dpw.npy
+|   |-- Human36M  
+|   |   |-- images 
+|   |   |-- annotations   
+|   |   |-- absnet_output_on_testset.json 
+|   |   |-- J_regressor_h36m_correct.npy
+|   |-- COCO  
+|   |   |-- images  
+|   |   |   |-- train2017  
+|   |   |   |-- val2017 
+|   |   |-- annotations  
+|   |   |-- J_regressor_coco.npy
+|   |   |-- hrnet_output_on_valset.json
+|   |-- PW3D 
+|   |   |-- data
+|   |   |   |-- 3DPW_latest_test.json
+|   |   |   |-- 3DPW_latest_train.json
+|   |   |   |-- 3DPW_latest_validation.json
+|   |   |   |-- darkpose_3dpw_testset_output.json
+|   |   |   |-- darkpose_3dpw_validationset_output.json
+|   |   |-- imageFiles
+```
+- Download base data [[data](https://drive.google.com/drive/folders/1Fwx1IjQ5HrdCypbHwZUB2YCOKsCRvSET)]
+- Download Human3.6M parsed data and SMPL parameters [[data](https://drive.google.com/drive/folders/1r0B9I3XxIIW_jsXjYinDpL6NFcxTZart?usp=share_link)][[SMPL parameters from SMPLify-X](https://drive.google.com/drive/folders/12fCumEgs9PXT-dAaOGq0EDpl9dGKKorF?usp=share_link)]
+- Download COCO SMPL parameters [[SMPL parameters from SMPLify](https://drive.google.com/drive/folders/1hJabUWLOMboM2sUhIj0ep6wiRsO3Kh4C?usp=sharing)]  
+- Download 3DPW parsed data [[data](https://drive.google.com/drive/folders/1Sw9HB1nbMYHP2hX1TeoQd-groUMb2HIo?usp=sharing)]
+- All annotation files follow [MS COCO format](https://cocodataset.org/#format-data).
+- If you want to add your own dataset, you have to convert it to [MS COCO format](https://cocodataset.org/#format-data).
+- Images need to to be downloaded, but if needed you can download them from their offical sites.
+- 2D pose detection outputs can be downloaded here: [Human36M](https://drive.google.com/drive/folders/1YjACLyfm7V-cUIXr1b8SWJzmKtuhpOCp?usp=sharing), [COCO](https://drive.google.com/drive/folders/19HyI1ENxF0fKV5xXKqXTRLcc-QJJazMP?usp=sharing), [3DPW](https://drive.google.com/drive/folders/1fgliGqMgQwy6zAoUEZHayq4IySNlyqib?usp=sharing)
+
+### Pytorch SMPL layer
+
+- For the SMPL layer, I used [smplpytorch](https://github.com/gulvarol/smplpytorch). The repo is already included in `${ROOT}/smplpytorch`.
+- Download `basicModel_f_lbs_10_207_0_v1.0.0.pkl`, `basicModel_m_lbs_10_207_0_v1.0.0.pkl`, and `basicModel_neutral_lbs_10_207_0_v1.0.0.pkl` from [here](https://smpl.is.tue.mpg.de/downloads) (female & male) and [here](http://smplify.is.tue.mpg.de/) (neutral) to `${ROOT}/smplpytorch/smplpytorch/native/models`.
+
+### Pretrained model weights
+Download pretrained model weights from [here](https://onedrive.live.com/?id=%2Fpersonal%2Fd70f26d613e83858%2FDocuments%2FLINK%2Fresults&view=0) to a corresponding directory.
+```
+${ROOT}  
+|-- results  
+|   |-- 3dpw_det.pth.tar
+|   |-- h36m_det.pth.tar
+```
+
+### Train
+
+It is a two-stage training that first pre-trains PoseNet and then trains the whole LINK after loading the weights of PoseNet.
+
+Select the config file `*.yml` in `./asset/yaml/` and train. You can change the train set and pretrained posenet by your own `*.yml` file. 
+
+**1. Pre-train PoseNet**
+
+Use the config file `posenet_*.yml` in `./asset/yaml/` to train PoseNet.
+
+Run
+```
+python main/train.py --gpu {GPU_id} --cfg ./asset/yaml/posenet_{input joint set}_train_{dataset list}.yml
+```
+
+**2. Train LINK**
+
+Set PoseNet weights `./experiment/exp_*/checkpoint/best.pth.tar` to the config file `mesh_*.yml` in `posenet_path`. And set `posenet_pretrained` True.
+
+Run
+```
+python main/train.py --gpu {GPU_id} --cfg ./asset/yaml/mesh_{input joint set}_train_{dataset list}.yml
+```
+
+### Test
+
+Select the config file in `./asset/yaml/` and test.
+
+Run
+```
+python main/test.py ./asset/yaml/mesh_{input joint set}_test_{dataset name}.yml --gpu 0,1,2,3 --cfg
+
+# For example, test 3dpw using detected 2d pose
+python ./main/test.py --cfg ./asset/yaml/mesh_cocoJ_test_human36_coco_det.yml --gpu 0
+```
+
+
+### Acknowledgement
+
+Our code is built on the following repositories. We thank the authors for their open source work.
+- [Pose2Mesh](https://github.com/hongsukchoi/Pose2Mesh_RELEASE)
+- [GATOR](https://github.com/kasvii/GATOR/tree/master)
